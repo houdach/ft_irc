@@ -3,16 +3,32 @@
 
 #include <map>
 #include <string>
+#include <iostream>
+#include <cstdlib>      
+#include <cstring>     
+#include <sys/types.h>  
+#include <sys/socket.h> 
+#include <netinet/in.h> 
+#include <arpa/inet.h>  
+#include <unistd.h>  
 #include "Client.hpp"
 #include "Channel.hpp"
+#include <stdexcept>
+#include <poll.h>
+
+class ServerException : public std::runtime_error {
+public:
+    ServerException(const std::string& msg)
+        : std::runtime_error(msg) {}
+};
 
 class Server {
 private:
-    int _port;                              // Port number to listen on
-    int _socketFd;                          // Listening socket FD
-    std::map<int, Client*> _clients;        // fd -> Client
-    std::map<std::string, Channel*> _channels; // name -> Channel
-    std::string _password;                  // Optional server password
+    int port;                              // Port number to listen on
+    int socketFd;                          // Listening socket FD
+    std::map<int, Client*> clients;        // fd -> Client
+    std::map<std::string, Channel*> channels; // name -> Channel
+    std::string password;                  // Optional server password
 
 public:
     Server();
