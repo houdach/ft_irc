@@ -2,31 +2,53 @@
 #define CHANNEL_HPP
 
 #include <string>
-#include <set>
-#include "Client.hpp"
+#include <vector>
+class Client;
 
-class Channel {
-private:
-    std::string _name;             // Channel name (#room)
-    std::string _topic;            // Channel topic
-    std::set<Client*> _members;    // All clients in channel
-    std::set<Client*> _operators;  // Channel operators
+class Channel
+{
+    private:
+        std::string name;
+        std::string topic;
+        std::string key;
+        bool inviteOnly;
+        bool topicRestricted;
+        int userLimit;
+        std::vector<Client*> users;
+        std::vector<Client*> operators;
 
-public:
-    Channel(const std::string& name);
-    ~Channel();
+    public:
+        Channel();
+        Channel(const std::string& name);
+        ~Channel();
 
-    // Membership
-    void addClient(Client* client);
-    void removeClient(Client* client);
-    bool hasClient(Client* client) const;
+        void addUser(Client* client);
+        void removeUser(Client* client);
+        void addOperator(Client* client);
+        void removeOperator(Client* client);
 
-    // Topic
-    void setTopic(const std::string& topic);
-    std::string getTopic() const;
+        bool hasUser(Client* client) const;
+        bool isOperator(Client* client) const;
 
-    // Broadcast
-    void broadcast(const std::string& msg, Client* except = NULL);
+        void broadcast(const std::string& message, Client* sender = NULL);
+
+        std::string getName() const;
+        std::string getTopic() const;
+        std::string getKey() const;
+        bool getInviteOnly() const;
+        bool getTopicRestricted() const;
+        int getUserLimit() const;
+        std::vector<Client*> getUsers() const;
+        std::vector<Client*> getOperators() const;
+        size_t getUserCount() const;
+
+        void setTopic(const std::string& newTopic);
+        void setKey(const std::string& newKey);
+        void setInviteOnly(bool invite);
+        void setTopicRestricted(bool restricted);
+        void setUserLimit(int limit);
+
+        bool isFull() const;
 };
 
 #endif
