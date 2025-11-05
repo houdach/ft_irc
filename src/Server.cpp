@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <fcntl.h>
+#include "../bonus/includes/bot.hpp"
 
 Server::Server() {}
 
@@ -25,6 +26,8 @@ void Server::init(int port, const std::string& password)
 {
     this->port = port;
     this->password = password;
+    bot = new Bot(this); 
+    bot->start(); 
     int opt = 1;
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;         
@@ -236,7 +239,7 @@ void handleJoin(Server* server, Client* client, const Request& req)
     sendNumeric(client->getFd(), 366, client->getNick(), channelName + " :End of /NAMES list");
 }
 
-void handlePrivmsg(Server* server, Client* client, const Request& req) 
+void Server::handlePrivmsg(Client* client, const Request& req) 
 {
     if (!client->isRegistered()) 
     {
@@ -262,10 +265,31 @@ void handlePrivmsg(Server* server, Client* client, const Request& req)
     std::stringstream msg;
     msg << ":" << client->getNick() << " PRIVMSG " << target << " :" << message;
     
-    
+    if (message.find("DCC SEND") != std::string::npos)
+    {
+        std::cout << "📡 DCC SEND detected: " << message << std::endl;
+        std::stringstream ss(message);
+        std::string dcc, cmd, filename;
+        unsigned long ipInt;
+        int port;
+        size_t filesize;
+        ss >> dcc >> cmd >> filename >> ipInt >> port >> filesize;
+
+        struct in_addr addr;
+        addr.s_addr = htonl(ipInt);
+        std::string ip = inet_ntoa(addr);
+
+        std::cout << "Parsed DCC SEND request -> file: " << filename
+                << ", ip: " << ip << ", port: " << port
+                << ", size: " << filesize << std::endl;
+
+        DCCTransfer transfer("RECEIVE", client->getNick() ,filename, ip, port, filesize);
+        transfer.start();
+    }
+
     if (target[0] == '#') 
     {
-        Channel* channel = server->getChannel(target);
+        Channel* channel = this->getChannel(target);
         if (!channel) 
         {
             sendNumeric(client->getFd(), 403, client->getNick(), target + " :No such channel");
@@ -279,10 +303,13 @@ void handlePrivmsg(Server* server, Client* client, const Request& req)
         }
         
         channel->broadcast(msg.str(), client);
+        if (bot && target[0] == '#')
+            bot->onMessage(target, client->getNick(), message);
+
     } 
     else 
     {
-        Client* targetClient = server->getClientByNick(target);
+        Client* targetClient = this->getClientByNick(target);
         if (!targetClient) 
         {
             sendNumeric(client->getFd(), 401, client->getNick(), target + " :No such nick/channel");
@@ -692,7 +719,7 @@ void Server::run()
                     else if (cmd == "JOIN") 
                         handleJoin(this, client, req); 
                     else if (cmd == "PRIVMSG") 
-                        handlePrivmsg(this, client, req); 
+                        handlePrivmsg(client, req); 
                     else if (cmd == "PART") 
                         handlePart(this, client, req); 
                     else if (cmd == "KICK") 
@@ -714,4 +741,8 @@ void Server::run()
             }
         }
     }
+}
+void Server::registerInternalClient(int fd, Client* client)
+{
+    clients[fd] = client;
 }

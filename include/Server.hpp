@@ -15,7 +15,10 @@
 #include "Channel.hpp"
 #include <stdexcept>
 #include <poll.h>
+#include "Request.hpp"
+#include "../bonus/includes/DCCTransfer.hpp"
 
+class Bot;
 class ServerException : public std::runtime_error
 {
     public:
@@ -31,6 +34,7 @@ class Server
         std::map<int, Client*> clients;        // fd -> Client
         std::string password;                  // Optional server password
         std::vector<struct pollfd> pollfds;
+        Bot *bot;
 
     public:
         std::map<std::string, Channel*> channels; // name -> Channel
@@ -49,6 +53,8 @@ class Server
         Client* getClient(int fd);
         Client* getClientByNick(const std::string& nick);
         Channel* getChannel(const std::string& name);
+        void handlePrivmsg(Client* client, const Request& req);
+         void registerInternalClient(int fd, Client* client);
 };
 
 #endif

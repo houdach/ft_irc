@@ -10,9 +10,12 @@ CXXFLAGS    = -Wall -Wextra -Werror -std=c++98 -Iinclude
 # Find all source files recursively under src/
 SRC_DIR     = src
 OBJ_DIR     = obj
+BONUS_DIR   = ./bonus/srcs
 
 SRC         = $(shell find $(SRC_DIR) -name '*.cpp')
-OBJ         = $(SRC:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+BONUS_SRC   = $(shell find $(BONUS_DIR) -type f -name '*.cpp')
+ALL_SRC     = $(SRC) $(BONUS_SRC)
+OBJ         = $(ALL_SRC:.cpp=.o)
 
 # Colors
 GREEN   = \033[0;32m
