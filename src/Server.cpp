@@ -265,27 +265,39 @@ void Server::handlePrivmsg(Client* client, const Request& req)
     std::stringstream msg;
     msg << ":" << client->getNick() << " PRIVMSG " << target << " :" << message;
     
-    if (message.find("DCC SEND") != std::string::npos)
-    {
-        std::cout << "📡 DCC SEND detected: " << message << std::endl;
-        std::stringstream ss(message);
-        std::string dcc, cmd, filename;
-        unsigned long ipInt;
-        int port;
-        size_t filesize;
-        ss >> dcc >> cmd >> filename >> ipInt >> port >> filesize;
+        if (message.find("DCC SEND") != std::string::npos)
+        {
+            std::cout << "📡 DCC SEND detected: " << message << std::endl;
 
-        struct in_addr addr;
-        addr.s_addr = htonl(ipInt);
-        std::string ip = inet_ntoa(addr);
+            std::stringstream ss(message);
+            std::string dcc, cmd, filename;
+            unsigned long ipInt;
+            int port;
+            size_t filesize;
+            ss >> dcc >> cmd >> filename >> ipInt >> port >> filesize;
 
-        std::cout << "Parsed DCC SEND request -> file: " << filename
-                << ", ip: " << ip << ", port: " << port
-                << ", size: " << filesize << std::endl;
+            Client* targetClient = this->getClientByNick(target);
 
-        DCCTransfer transfer("RECEIVE", client->getNick() ,filename, ip, port, filesize);
-        transfer.start();
-    }
+            if (!targetClient || client == targetClient)
+            {
+                std::cerr << "ERROR: Invalid target client for DCC SEND.\n";
+                return;
+            }
+
+            // Use internal file copy (simulate DCC transfer)
+            std::string filesizeStr = std::to_string(filesize);
+
+            // Receiver handles file copy
+            DCCTransfer recvTransfer(targetClient->getNick(), filename, filesizeStr);
+            recvTransfer.start();
+
+            // Sender gets only a notification
+            std::string senderNotice = "\033[32mFile transfer to " + targetClient->getNick() + " started!\033[0m\r\n";
+            send(client->getFd(), senderNotice.c_str(), senderNotice.size(), 0);
+
+            return;
+        }
+
 
     if (target[0] == '#') 
     {

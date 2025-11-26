@@ -1,37 +1,26 @@
+// DCCTransfer.hpp
 #ifndef DCCTRANSFER_HPP
 #define DCCTRANSFER_HPP
 
 #include <string>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <fstream>
 #include <iostream>
 
 class DCCTransfer
 {
 private:
-    int         _sockfd;
-    std::string _filename;
-    std::string _targetNick;
-    std::string _mode;
-    size_t      _filesize;
-    int         _port;
-    std::string _ip;
+    std::string _filename;        // Source file
+    std::string _targetNick;      // Receiver nickname
+    std::string _filesizeStr;     // For notifications
 
 public:
-    DCCTransfer(const std::string& mode,
-                const std::string& targetNick,
+    DCCTransfer(const std::string& targetNick,
                 const std::string& filename,
-                const std::string& ip,
-                int port,
-                size_t filesize);
+                const std::string& filesizeStr);
 
-    ~DCCTransfer();
+    ~DCCTransfer() {}
 
-    bool start();
-    bool sendFile();
-    bool receiveFile();
+    void start(); // Internal copy transfer
 };
 
 #endif
