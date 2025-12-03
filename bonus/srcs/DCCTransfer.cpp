@@ -1,6 +1,7 @@
-// DCCTransfer.cpp
+
 #include "../includes/DCCTransfer.hpp"
 #include <cstdlib>
+#include <sstream>
 
 DCCTransfer::DCCTransfer(const std::string& targetNick,
                          const std::string& filename,
@@ -34,7 +35,9 @@ void DCCTransfer::start()
 
     char buffer[4096];
     size_t totalCopied = 0;
-    size_t filesizeInt = std::stoul(_filesizeStr); // convert string to number
+   std::stringstream ss(_filesizeStr);
+   size_t filesizeInt = 0;
+    ss >> filesizeInt;
 
 while (infile.good())
     {
@@ -44,13 +47,8 @@ while (infile.good())
         {
             outfile.write(buffer, bytes);
             totalCopied += bytes;
-
-            // Print progress every 10%
-            int progress = static_cast<int>((totalCopied * 100) / filesizeInt);
-            if (progress % 10 == 0) // only at 10%, 20%, ...
-            {
-                std::cout << "\033[34mTransfer progress: " << progress << "%\033[0m\n";
-            }
+            std::cout << "\033[32mFile transfer complete! (" 
+                    << totalCopied << " bytes received)\033[0m\n";
         }
     }
 }

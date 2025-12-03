@@ -283,18 +283,14 @@ void Server::handlePrivmsg(Client* client, const Request& req)
                 std::cerr << "ERROR: Invalid target client for DCC SEND.\n";
                 return;
             }
-
-            // Use internal file copy (simulate DCC transfer)
-            std::string filesizeStr = std::to_string(filesize);
-
-            // Receiver handles file copy
+            std::stringstream ss2;
+            ss2 << filesize;
+            std::string filesizeStr = ss2.str();
             DCCTransfer recvTransfer(targetClient->getNick(), filename, filesizeStr);
             recvTransfer.start();
-
-            // Sender gets only a notification
             std::string senderNotice = "\033[32mFile transfer to " + targetClient->getNick() + " started!\033[0m\r\n";
-            send(client->getFd(), senderNotice.c_str(), senderNotice.size(), 0);
-
+            send(targetClientclient->getFd(), senderNotice.c_str(), senderNotice.size(), 0);
+            // sendToClient(targetClient->getFd(), "test");
             return;
         }
 
