@@ -1,2 +1,5 @@
 MODE +k ->>> KEY not working 
 MODE +i ->> INVITE only not working
+welcoming message
+password checks
+user parsing

@@ -289,7 +289,7 @@ void Server::handlePrivmsg(Client* client, const Request& req)
             DCCTransfer recvTransfer(targetClient->getNick(), filename, filesizeStr);
             recvTransfer.start();
             std::string senderNotice = "\033[32mFile transfer to " + targetClient->getNick() + " started!\033[0m\r\n";
-            send(targetClientclient->getFd(), senderNotice.c_str(), senderNotice.size(), 0);
+            send(targetClient->getFd(), senderNotice.c_str(), senderNotice.size(), 0);
             // sendToClient(targetClient->getFd(), "test");
             return;
         }
