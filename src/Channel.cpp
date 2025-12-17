@@ -16,6 +16,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <iostream>
+
 Channel::Channel() 
     : name(""), topic(""), key(""), inviteOnly(false), 
       topicRestricted(true), userLimit(-1) 
@@ -49,6 +51,30 @@ void Channel::removeUser(Client* client)
     if (it != operators.end())
         operators.erase(it);
 }
+
+    void Channel::addInvite(const std::string& nick)
+    {
+        // avoid duplicates
+        for (size_t i = 0; i < invited.size(); ++i)
+            if (invited[i] == nick)
+                return;
+        invited.push_back(nick);
+    }
+
+    bool Channel::isInvited(const std::string& nick) const
+    {
+        for (size_t i = 0; i < invited.size(); ++i)
+            if (invited[i] == nick)
+                return true;
+        return false;
+    }
+
+    void Channel::removeInvite(const std::string& nick)
+    {
+        std::vector<std::string>::iterator it = std::find(invited.begin(), invited.end(), nick);
+        if (it != invited.end())
+            invited.erase(it);
+    }
 
 void Channel::addOperator(Client* client) 
 {

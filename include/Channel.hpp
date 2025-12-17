@@ -16,6 +16,7 @@ class Channel
         int userLimit;
         std::vector<Client*> users;
         std::vector<Client*> operators;
+        std::vector<std::string> invited;
 
     public:
         Channel();
@@ -47,6 +48,11 @@ class Channel
         void setInviteOnly(bool invite);
         void setTopicRestricted(bool restricted);
         void setUserLimit(int limit);
+
+        // Invite list handling
+        void addInvite(const std::string& nick);
+        bool isInvited(const std::string& nick) const;
+        void removeInvite(const std::string& nick);
 
         bool isFull() const;
 };
