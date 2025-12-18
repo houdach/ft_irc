@@ -28,9 +28,7 @@ Server::~Server()
 void Server::init(int port, const std::string& password)
 {
     this->port = port;
-    this->password = password;
-    bot = new Bot(this); 
-    bot->start(); 
+    this->password = password; 
     int opt = 1;
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;         
@@ -52,6 +50,8 @@ void Server::init(int port, const std::string& password)
     
     fcntl(socketFd, F_SETFL, O_NONBLOCK);
     
+    bot = new Bot(this); 
+    bot->start();
     std::cout << "[+] Server listening on port " << port
     << " (fd=" << socketFd << ")" << std::endl;
 }
@@ -204,16 +204,16 @@ void handleUser(Server* server, Client* client, const Request& req)
         sendNumeric(client->getFd(), 461, client->getNick(), "USER :Not enough parameters");
         return;
     }
-
+    
     if (!client->isPasswordAuthenticated()) 
     {
         sendNumeric(client->getFd(), 464, client->getNick(), ":Password required");
         return;
     }
 
-    // Params: username, mode (ignored), unused, :realname
+    // Params: username, mode (ignored), unused, realname (parser strips ':')
     client->setUsername(req.getParams()[0]);
-    client->setRealname(req.getParams()[2]);
+    client->setRealname(req.getParams()[3]);
 
     // Allow USER before or after NICK. Register only when both present and password ok
     if (!client->isRegistered() && !client->getNick().empty() && !client->getUsername().empty()) 
@@ -223,9 +223,7 @@ void handleUser(Server* server, Client* client, const Request& req)
         sendNumeric(client->getFd(), 002, client->getNick(), ":Your host is ircserv");
         sendNumeric(client->getFd(), 003, client->getNick(), ":This server was created recently");
     }
-}
-
-void handleJoin(Server* server, Client* client, const Request& req) 
+}void handleJoin(Server* server, Client* client, const Request& req) 
 {
     if (!client->isRegistered()) 
     {
@@ -313,7 +311,8 @@ void handleJoin(Server* server, Client* client, const Request& req)
         if (i < users.size() - 1)
             names << " ";
     }
-    // sendNumeric(client->getFd(), 353, client->getNick(), "joined " + channelName + " :" + names.str());
+    sendNumeric(client->getFd(), 353, client->getNick(), "= " + channelName + " :" + names.str());
+    sendNumeric(client->getFd(), 366, client->getNick(), channelName + " :End of /NAMES list");
 }
 
 void Server::handlePrivmsg(Client* client, const Request& req) 
@@ -699,42 +698,60 @@ void handleMode(Server* server, Client* client, const Request& req)
             }
             
             std::string modeStr = req.getParams()[1];
+            size_t paramIndex = 2;  // Start from req.getParams()[2]
             bool adding = true;
             
-            for (size_t i = 0; i < modeStr.length(); i++) 
+            for (size_t i = 0; i < modeStr.length(); ++i) 
             {
-                if (modeStr[i] == '+') 
+                char modeChar = modeStr[i];
+                if (modeChar == '+') 
                 {
                     adding = true;
+                    continue;
                 } 
-                else if (modeStr[i] == '-') 
+                else if (modeChar == '-') 
                 {
                     adding = false;
-                } 
-                else if (modeStr[i] == 'i') 
+                    continue;
+                }
+                
+                std::string param = "";
+                if (modeChar == 'k' || modeChar == 'l' || modeChar == 'o')
+                {
+                    if (paramIndex < req.getParams().size())
+                        param = req.getParams()[paramIndex++];
+                    else
+                    {
+                        // Not enough params, skip or error
+                        continue;
+                    }
+                }
+                
+                // Apply the mode
+                if (modeChar == 'i') 
                 {
                     channel->setInviteOnly(adding);
                 } 
-                else if (modeStr[i] == 't') 
+                else if (modeChar == 't') 
                 {
                     channel->setTopicRestricted(adding);
                 } 
-                else if (modeStr[i] == 'k') 
+                else if (modeChar == 'k') 
                 {
-                    if (adding && req.getParams().size() > 2) 
+                    if (adding) 
                     {
-                        channel->setKey(req.getParams()[2]);
+                        channel->setKey(param);
                     } 
                     else 
                     {
                         channel->setKey("");
                     }
                 } 
-                else if (modeStr[i] == 'l') 
+                else if (modeChar == 'l') 
                 {
-                    if (adding && req.getParams().size() > 2) 
+                    if (adding) 
                     {
-                        int limit = std::atoi(req.getParams()[2].c_str());
+                        int limit = std::atoi(param.c_str());
                         channel->setUserLimit(limit);
                     } 
                     else 
@@ -742,41 +759,35 @@ void handleMode(Server* server, Client* client, const Request& req)
                         channel->setUserLimit(-1);
                     }
                 } 
-                else if (modeStr[i] == 'o') 
+                else if (modeChar == 'o') 
                 {
-                    if (req.getParams().size() > 2) 
+                    // Find target client
+                    std::vector<Client*> users = channel->getUsers();
+                    for (size_t j = 0; j < users.size(); ++j) 
                     {
-                        std::string targetNick = req.getParams()[2];
-                        // Find target client
-                        std::vector<Client*> users = channel->getUsers();
-                        for (size_t j = 0; j < users.size(); j++) 
+                        if (users[j]->getNick() == param) 
                         {
-                            if (users[j]->getNick() == targetNick) 
+                            if (adding) 
                             {
-                                if (adding) 
-                                {
-                                    channel->addOperator(users[j]);
-                                } 
-                                else 
-                                {
-                                    channel->removeOperator(users[j]);
-                                }
-                                break;
+                                channel->addOperator(users[j]);
+                            } 
+                            else 
+                            {
+                                channel->removeOperator(users[j]);
                             }
+                            break;
                         }
                     }
                 }
+                
+                // Broadcast this mode change
+                std::stringstream modeMsg;
+                modeMsg << ":" << client->getNick() << " MODE " << target << " " << (adding ? "+" : "-") << modeChar;
+                if (!param.empty())
+                    modeMsg << " " << param;
+                channel->broadcast(modeMsg.str(), NULL);
+                sendToClient(client->getFd(), modeMsg.str());
             }
-            
-            // Broadcast mode change
-            std::stringstream modeMsg;
-            modeMsg << ":" << client->getNick() << " MODE " << target << " " << modeStr;
-            if (req.getParams().size() > 2) 
-            {
-                modeMsg << " " << req.getParams()[2];
-            }
-            channel->broadcast(modeMsg.str(), NULL);
-            sendToClient(client->getFd(), modeMsg.str());
         }
     }
 }
