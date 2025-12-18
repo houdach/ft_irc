@@ -9,9 +9,9 @@
 class DCCTransfer
 {
 private:
-    std::string _filename;        // Source file
-    std::string _targetNick;      // Receiver nickname
-    std::string _filesizeStr;     // For notifications
+    std::string _filename;       
+    std::string _targetNick;  
+    std::string _filesizeStr;    
 
 public:
     DCCTransfer(const std::string& targetNick,
@@ -20,7 +20,7 @@ public:
 
     ~DCCTransfer() {}
 
-    void start(); // Internal copy transfer
+    void start();
 };
 
 #endif

@@ -23,8 +23,14 @@ void DCCTransfer::start()
         return;
     }
 
+    std::string filename = _filename;
+    size_t pos = filename.find_last_of("/");
+
+    if (pos != std::string::npos)
+        filename = filename.substr(pos + 1);
+
     const char* home = std::getenv("HOME");
-    std::string destPath = home ? std::string(home) + "/_copy_" + _filename : "_copy_" + _filename;
+    std::string destPath = home ? std::string(home) + "/_copy_" + filename : "_copy_" + filename;
 
     std::ofstream outfile(destPath.c_str(), std::ios::binary);
     if (!outfile)
@@ -39,16 +45,16 @@ void DCCTransfer::start()
    size_t filesizeInt = 0;
     ss >> filesizeInt;
 
-while (infile.good())
-    {
-        infile.read(buffer, sizeof(buffer));
-        std::streamsize bytes = infile.gcount();
-        if (bytes > 0)
+    while (infile.good())
         {
-            outfile.write(buffer, bytes);
-            totalCopied += bytes;
-            std::cout << "\033[32mFile transfer complete! (" 
-                    << totalCopied << " bytes received)\033[0m\n";
+            infile.read(buffer, sizeof(buffer));
+            std::streamsize bytes = infile.gcount();
+            if (bytes > 0)
+            {
+                outfile.write(buffer, bytes);
+                totalCopied += bytes;
+                std::cout << "\033[32mFile transfer complete! (" 
+                        << totalCopied << " bytes received)\033[0m\n";
+            }
         }
-    }
 }

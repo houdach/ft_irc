@@ -29,15 +29,15 @@ class ServerException : public std::runtime_error
 class Server
 {
     private:
-        int port;                              // Port number to listen on
-        int socketFd;                          // Listening socket FD
-        std::map<int, Client*> clients;        // fd -> Client
-        std::string password;                  // Optional server password
+        int port;                            
+        int socketFd;                       
+        std::map<int, Client*> clients;        
+        std::string password;                
         std::vector<struct pollfd> pollfds;
         Bot *bot;
 
     public:
-        std::map<std::string, Channel*> channels; // name -> Channel
+        std::map<std::string, Channel*> channels; 
         
         Server();
         ~Server();
@@ -45,11 +45,11 @@ class Server
         void init(int port, const std::string& password);
         void run();
 
-        // Client management
+     
         void addClient(int fd);
         void removeClient(int fd);
 
-        // Accessors
+    
         Client* getClient(int fd);
         Client* getClientByNick(const std::string& nick);
         Channel* getChannel(const std::string& name);

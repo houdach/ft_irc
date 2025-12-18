@@ -6,15 +6,15 @@
 
 class Client {
 private:
-    int _fd;                  // Socket FD
-    std::string _nick;        // Nickname
-    std::string _username;    // Username
-    std::string _realname;    // Real name
-    bool _registered;         // Has finished PASS+NICK+USER?
-    bool _passwordAuthenticated; // Has provided correct password
+    int _fd;               
+    std::string _nick;    
+    std::string _username;    
+    std::string _realname;    
+    bool _registered;        
+    bool _passwordAuthenticated; 
 
-    std::string _bufferIn;    // Data received but not yet parsed
-    std::vector<std::string> _bufferOut; // Messages to send
+    std::string _bufferIn;   
+    std::vector<std::string> _bufferOut; 
 
 public:
     Client(int fd);
@@ -37,7 +37,7 @@ public:
 
     // Communication
     void appendIncoming(const std::string& data);
-    std::string popLine();   // Get one IRC line (\r\n terminated)
+    std::string popLine();  
     void queueMessage(const std::string& msg);
     std::string nextMessage();
 };

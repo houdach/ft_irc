@@ -21,6 +21,8 @@ Server::~Server()
     {
         delete it->second;
     }   
+    if (bot)
+        delete bot;
     if (socketFd >= 0)
         close(socketFd);
 }
@@ -150,8 +152,6 @@ void handlePass(Server* server, Client* client, const Request& req)
     {
         sendNumeric(client->getFd(), 464, client->getNick(), ":Password incorrect");
         sendToClient(client->getFd(), ":server NOTICE * :Please enter a valid password");
-        // Refuse connection on wrong password
-        // server->removeClient(client->getFd());
     }
 }
 
@@ -172,7 +172,6 @@ void handleNick(Server* server, Client* client, const Request& req)
 
     std::string newNick = req.getParams()[0];
     std::string oldNick = client->getNick();
-    // Check for duplicate nickname
     Client* existing = server->getClientByNick(newNick);
     if (existing && existing != client)
     {
@@ -210,12 +209,9 @@ void handleUser(Server* server, Client* client, const Request& req)
         sendNumeric(client->getFd(), 464, client->getNick(), ":Password required");
         return;
     }
-
-    // Params: username, mode (ignored), unused, :realname
     client->setUsername(req.getParams()[0]);
     client->setRealname(req.getParams()[2]);
 
-    // Allow USER before or after NICK. Register only when both present and password ok
     if (!client->isRegistered() && !client->getNick().empty() && !client->getUsername().empty()) 
     {
         client->setRegistered(true);
@@ -251,7 +247,6 @@ void handleJoin(Server* server, Client* client, const Request& req)
     {
         channel = new Channel(channelName);
         server->channels[channelName] = channel;
-        // If the JOIN included a key argument when creating the channel, store it
         if (req.getParams().size() > 1 && !req.getParams()[1].empty())
             channel->setKey(req.getParams()[1]);
         channel->addUser(client);
@@ -259,14 +254,11 @@ void handleJoin(Server* server, Client* client, const Request& req)
     } 
     else 
     {
-        // Enforce invite-only: allow if operator or previously invited
         if (channel->getInviteOnly() && !channel->isOperator(client) && !channel->isInvited(client->getNick()))
         {
             sendNumeric(client->getFd(), 473, client->getNick(), channelName + " :Cannot join channel (+i)");
             return;
         }
-
-        // Enforce channel key if set
         if (!channel->getKey().empty())
         {
             std::string providedKey = (req.getParams().size() > 1) ? req.getParams()[1] : std::string();
@@ -284,7 +276,6 @@ void handleJoin(Server* server, Client* client, const Request& req)
         }
 
         channel->addUser(client);
-        // If they were invited, remove the invite after joining
         if (channel->isInvited(client->getNick()))
             channel->removeInvite(client->getNick());
     }
@@ -313,7 +304,6 @@ void handleJoin(Server* server, Client* client, const Request& req)
         if (i < users.size() - 1)
             names << " ";
     }
-    // sendNumeric(client->getFd(), 353, client->getNick(), "joined " + channelName + " :" + names.str());
 }
 
 void Server::handlePrivmsg(Client* client, const Request& req) 
@@ -367,7 +357,7 @@ void Server::handlePrivmsg(Client* client, const Request& req)
             recvTransfer.start();
             std::string senderNotice = "\033[32mFile transfer to " + targetClient->getNick() + " started!\033[0m\r\n";
             send(targetClient->getFd(), senderNotice.c_str(), senderNotice.size(), 0);
-            // sendToClient(targetClient->getFd(), "test");
+            sendToClient(targetClient->getFd(), "File recieved successfully");
             return;
         }
 
@@ -406,7 +396,6 @@ void Server::handlePrivmsg(Client* client, const Request& req)
 
 void handleNotice(Server* server, Client* client, const Request& req)
 {
-    // NOTICE behaves like PRIVMSG but must not generate automatic error replies
     if (!client->isRegistered())
         return;
 
@@ -501,15 +490,16 @@ void handleKick(Server* server, Client* client, const Request& req)
         return;
     }
     
-    if (req.getParams().size() < 2) 
+    if (req.getParams().size() < 3) 
     {
         sendNumeric(client->getFd(), 461, client->getNick(), "KICK :Not enough parameters");
         return;
     }
     
-    std::string channelName = req.getParams()[0];
-    std::string targetNick = req.getParams()[1];
-    std::string reason = req.getParams().size() > 2 ? req.getParams()[2] : client->getNick();
+    std::string serverName = req.getParams()[0];
+    std::string channelName = req.getParams()[1];
+    std::string targetNick = req.getParams()[2];
+    std::string reason = req.getParams().size() > 2 ? req.getParams()[3] : client->getNick();
     
     Channel* channel = server->getChannel(channelName);
     if (!channel) 
@@ -540,7 +530,6 @@ void handleKick(Server* server, Client* client, const Request& req)
                     targetNick + " " + channelName + " :They aren't on that channel");
         return;
     }
-    // Prevent kicking yourself
     if (targetClient == client)
     {
         sendToClient(client->getFd(), ":server NOTICE " + client->getNick() + " :You cannot kick yourself");
@@ -646,7 +635,6 @@ void handleInvite(Server* server, Client* client, const Request& req)
         return;
     }
 
-    // Add to invite list and notify target
     channel->addInvite(targetNick);
     sendNumeric(client->getFd(), 341, client->getNick(), targetNick + " " + channelName);
     std::stringstream inviteMsg;
@@ -747,7 +735,6 @@ void handleMode(Server* server, Client* client, const Request& req)
                     if (req.getParams().size() > 2) 
                     {
                         std::string targetNick = req.getParams()[2];
-                        // Find target client
                         std::vector<Client*> users = channel->getUsers();
                         for (size_t j = 0; j < users.size(); j++) 
                         {
@@ -767,8 +754,6 @@ void handleMode(Server* server, Client* client, const Request& req)
                     }
                 }
             }
-            
-            // Broadcast mode change
             std::stringstream modeMsg;
             modeMsg << ":" << client->getNick() << " MODE " << target << " " << modeStr;
             if (req.getParams().size() > 2) 
