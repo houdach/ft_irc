@@ -26,11 +26,10 @@ void Bot::start()
         return;
 
     _active = true;
-    _client = new Client(-1);  // fd = -1 = internal bot
+    _client = new Client(-1); 
     _client->setNick(_nickname);
     _client->setRegistered(true);
-  _server->registerInternalClient(-1, _client);
-
+    // _server->registerInternalClient(-1, _client);  // Don't add to poll loop
 
     std::cout << "🤖 Bot started as internal client." << std::endl;
 }

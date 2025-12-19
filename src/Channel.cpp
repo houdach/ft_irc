@@ -46,7 +46,7 @@ void Channel::removeUser(Client* client)
     if (it != users.end())
         users.erase(it);
     
-    // Also remove from operators if present
+ 
     it = std::find(operators.begin(), operators.end(), client);
     if (it != operators.end())
         operators.erase(it);
@@ -54,7 +54,7 @@ void Channel::removeUser(Client* client)
 
     void Channel::addInvite(const std::string& nick)
     {
-        // avoid duplicates
+    
         for (size_t i = 0; i < invited.size(); ++i)
             if (invited[i] == nick)
                 return;

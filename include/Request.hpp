@@ -6,9 +6,9 @@
 
 class Request {
 private:
-    std::string _prefix;           // Optional :prefix
-    std::string _command;          // Command name (NICK, USER, JOIN…)
-    std::vector<std::string> _params; // Parameters
+    std::string _prefix;      
+    std::string _command;        
+    std::vector<std::string> _params; 
 
 public:
     Request();

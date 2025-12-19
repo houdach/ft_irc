@@ -1,0 +1,7 @@
+USER ziko 0 *:zakaria chtaibi ; before i enter nick should print a message to enter nick
+and error syntaxe cuze : should be before full name
+
+JOIN should print topic of the channel also
+
+KICK ziko #genx :sdvsd dvsvdvs
+:server 441 ghita sdvsd dvsvdvs #genx :They aren't on that channel

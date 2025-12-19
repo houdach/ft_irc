@@ -1,31 +1,4 @@
 
-
-
-
-USER ziko 0 *:zakaria chtaibi
-:server 461 ziko USER :Invalid realname format, must start with ':'
-
-
-2.
-JOIN should boradcast a list of users of the channel and the topic as well.
-
-3.
-KICK
-
-U SHOULD CHECK FOR ':' cus it's required and the string is not complet
-sender :
-KICK #room ali malk 7mar !!!!!!!!! 
-
-received :
-
-:salah KICK #room ali :malk
-
-4.
-topic
-
-check for topic ':' is required and as well as u should print the topic of
-channel if no channel name passed.
-
 5.
 MODE (not working when mulit modes passed in one command.)
 
@@ -37,8 +10,6 @@ MODE #room +okl zakaria 123 99
 
 expected output
 MODE #room +okl zakaria 123 99
-:salah MODE +o zkaria is now a chenops
+:salah MODE +o zkaria is now a operator
 :salah MODE +k password is 123
 :salah MODE +l userlimit is 99
-
-
