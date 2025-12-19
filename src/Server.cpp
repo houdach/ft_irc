@@ -227,7 +227,6 @@ void handleUser(Server* server, Client* client, const Request& req, const std::s
         sendNumeric(client->getFd(), 470, client->getNick(), "USER: Incorrect nick");
         return;
     }
-    // Params: username, mode (ignored), unused, realname (parser strips ':')
     client->setUsername(req.getParams()[0]);
     client->setRealname(req.getParams()[3]);
 
@@ -274,21 +273,20 @@ void handleJoin(Server* server, Client* client, const Request& req)
     } 
     else 
     {
-        if (channel->getInviteOnly() && !channel->isOperator(client) && !channel->isInvited(client->getNick()))
+        if (channel->getInviteOnly() && !channel->isInvited(client->getNick()))
         {
             sendNumeric(client->getFd(), 473, client->getNick(), channelName + " :Cannot join channel (+i)");
             return;
         }
         if (!channel->getKey().empty())
         {
-            std::string providedKey = (req.getParams().size() > 1) ? req.getParams()[1] : std::string();
+            std::string providedKey = (req.getParams().size() > 1) ? req.getParams()[1] : "";
             if (providedKey != channel->getKey())
             {
-                sendNumeric(client->getFd(), 475, client->getNick(), channelName + " :Cannot join channel (secret code needed)");
+                sendNumeric(client->getFd(), 475, client->getNick(), channelName + " :Cannot join channel (incorrect channel key)");
                 return;
             }
         }
-
         if (channel->isFull()) 
         {
             sendNumeric(client->getFd(), 471, client->getNick(), channelName + " :Cannot join channel (+l)");
@@ -300,18 +298,20 @@ void handleJoin(Server* server, Client* client, const Request& req)
             channel->removeInvite(client->getNick());
     }
     
-    std::stringstream joinMsg;
-    joinMsg << "🎉 Welcome to the community, " << client->getNick() << "! You have joined the channel " << channelName;
-    sendToClient(client->getFd(), joinMsg.str());
-    
-    std::stringstream brodMsg;
-    brodMsg << "The user "<< client->getNick() << " joined " << channelName;
-    channel->broadcast(brodMsg.str(), client);
+    std::stringstream joinProtocolMsg;
+    joinProtocolMsg << ":" << client->getNick() << "!" << client->getUsername() << "@localhost JOIN " << channelName;
+    std::string protocolStr = joinProtocolMsg.str();
+
+    sendToClient(client->getFd(), protocolStr);
+    channel->broadcast(protocolStr, client);
     
     if (!channel->getTopic().empty()) 
     {
         sendNumeric(client->getFd(), 332, client->getNick(), 
-                    channelName + " :" + channel->getTopic());
+                    channelName + " Topic is" + channel->getTopic());
+    } else {
+        sendNumeric(client->getFd(), 333, client->getNick(), 
+                    channelName + " : Topic not set yet");
     }
     
     std::stringstream names;
@@ -326,10 +326,6 @@ void handleJoin(Server* server, Client* client, const Request& req)
     }
     sendNumeric(client->getFd(), 353, client->getNick(), "= " + channelName + " :" + names.str());
     sendNumeric(client->getFd(), 366, client->getNick(), channelName + " :End of /NAMES list");
-    if (channel->getTopic().empty())
-        sendNumeric(client->getFd(), 366, client->getNick(), channelName + " :Topic not set yet");
-    else
-        sendNumeric(client->getFd(), 366, client->getNick(), channelName + " :Topic is " + channel->getTopic());
 }
 
 void Server::handlePrivmsg(Client* client, const Request& req, const std::string& line) 
@@ -361,9 +357,9 @@ void Server::handlePrivmsg(Client* client, const Request& req, const std::string
             message += " " + req.getParams()[i];
     }
     
-    std::stringstream msg;
-    msg << ":" << client->getNick() << " PRIVMSG " << target << " :" << message;
-    
+        std::stringstream msg;
+        msg << ":" << client->getNick() << "!" << client->getUsername() << "@localhost PRIVMSG " << target << " :" << message;
+        
         if (message.find("DCC SEND") != std::string::npos)
         {
             std::cout << "📡 DCC SEND detected: " << message << std::endl;
@@ -373,8 +369,16 @@ void Server::handlePrivmsg(Client* client, const Request& req, const std::string
             unsigned long ipInt;
             int port;
             size_t filesize;
-            ss >> dcc >> cmd >> filename >> ipInt >> port >> filesize;
-
+            if (!(ss >> dcc >> cmd >> filename >> ipInt >> port >> filesize)) 
+            {
+                std::cerr << "ERROR: Invalid DCC SEND format. Missing or malformed arguments." << std::endl;
+                return;
+            }
+            std::string extra;
+            if (ss >> extra) 
+            {
+                std::cout << "Warning: Extra data detected after arguments: " << extra << std::endl;
+            }
             Client* targetClient = this->getClientByNick(target);
 
             if (!targetClient || client == targetClient)
@@ -389,7 +393,6 @@ void Server::handlePrivmsg(Client* client, const Request& req, const std::string
             recvTransfer.start();
             std::string senderNotice = "\033[32mFile transfer to " + targetClient->getNick() + " started!\033[0m\r\n";
             send(targetClient->getFd(), senderNotice.c_str(), senderNotice.size(), 0);
-            sendToClient(targetClient->getFd(), "File recieved successfully");
             return;
         }
 
@@ -422,47 +425,6 @@ void Server::handlePrivmsg(Client* client, const Request& req, const std::string
             sendNumeric(client->getFd(), 401, client->getNick(), target + " :No such nick/channel");
             return;
         }
-        sendToClient(targetClient->getFd(), msg.str());
-    }
-}
-
-void handleNotice(Server* server, Client* client, const Request& req)
-{
-    if (!client->isRegistered())
-        return;
-
-    if (req.getParams().size() < 2)
-        return;
-
-    std::string target = req.getParams()[0];
-    std::string message;
-    if (req.getParams().size() >= 2)
-    {
-        message = req.getParams()[1];
-        for (size_t i = 2; i < req.getParams().size(); ++i)
-            message += " " + req.getParams()[i];
-    }
-
-    std::stringstream msg;
-    msg << ":" << client->getNick() << " NOTICE " << target << " :" << message;
-
-    if (target.empty())
-        return;
-
-    if (target[0] == '#')
-    {
-        Channel* channel = server->getChannel(target);
-        if (!channel)
-            return;
-        if (!channel->hasUser(client))
-            return;
-        channel->broadcast(msg.str(), client);
-    }
-    else
-    {
-        Client* targetClient = server->getClientByNick(target);
-        if (!targetClient)
-            return;
         sendToClient(targetClient->getFd(), msg.str());
     }
 }
@@ -532,23 +494,19 @@ void handleKick(Server* server, Client* client, const Request& req, const std::s
         return;
     }
     
-    // Expected params: <server> <#channel> <target> :<reason>
-    if (req.getParams().size() < 3) 
+    if (req.getParams().size() < 2) 
     {
         sendNumeric(client->getFd(), 461, client->getNick(), "KICK :Not enough parameters");
         return;
     }
-    // Require a single trailing parameter (reason) that starts with ':' in the raw line
-    if (req.getParams().size() != 4 || line.find(" :") == std::string::npos)
-    {
-        sendNumeric(client->getFd(), 461, client->getNick(), "KICK :Invalid reason format, must start with ':'");
-        return;
-    }
 
-    std::string serverName = req.getParams()[0];
-    std::string channelName = req.getParams()[1];
-    std::string targetNick = req.getParams()[2];
-    std::string reason = req.getParams()[3];
+    std::string channelName = req.getParams()[0];
+    std::string targetNick = req.getParams()[1];
+    std::string reason = "Kicked by operator";
+    if (req.getParams().size() >= 3 && line.find(" :") != std::string::npos)
+    {
+        reason = req.getParams()[2];
+    }
     
     Channel* channel = server->getChannel(channelName);
     if (!channel) 
@@ -562,97 +520,70 @@ void handleKick(Server* server, Client* client, const Request& req, const std::s
         sendNumeric(client->getFd(), 482, client->getNick(), channelName + " :You're not channel operator");
         return;
     }
-    Client* targetClient = NULL;
-    std::vector<Client*> users = channel->getUsers();
-    for (size_t i = 0; i < users.size(); i++) 
-    {
-        if (users[i]->getNick() == targetNick) 
-        {
-            targetClient = users[i];
-            break;
-        }
-    }
-    
-    if (!targetClient) 
+
+    Client* targetClient = server->getClientByNick(targetNick);
+    if (!targetClient || !channel->hasUser(targetClient)) 
     {
         sendNumeric(client->getFd(), 441, client->getNick(), 
                     targetNick + " " + channelName + " :They aren't on that channel");
         return;
     }
+
     if (targetClient == client)
     {
         sendToClient(client->getFd(), ":server NOTICE " + client->getNick() + " :You cannot kick yourself");
         return;
     }
-        std::stringstream kickMsg;
-        kickMsg << ":" << client->getNick() << " KICK " << channelName << " " 
-            << targetNick << " because:" << reason;
-        // Broadcast to channel (exclude actor to avoid duplicate prints), target will receive it
-        channel->broadcast(kickMsg.str(), client);
-        // Notify the actor that the kick was performed
-        sendToClient(client->getFd(), ":server NOTICE " + client->getNick() + " :You kicked " + targetNick + " from " + channelName);
+
+    std::stringstream kickMsg;
+    kickMsg << ":" << client->getNick() << "!" << client->getUsername() << "@localhost KICK " 
+            << channelName << " " << targetNick << " :" << reason;
+    
+    channel->broadcast(kickMsg.str(), client);
+    sendToClient(client->getFd(), kickMsg.str());
     
     channel->removeUser(targetClient);
 }
 
 void handleTopic(Server* server, Client* client, const Request& req, const std::string &line) 
 {
-    if (!client->isRegistered()) 
-    {
+    if (!client->isRegistered()) {
         sendNumeric(client->getFd(), 451, client->getNick(), ":You have not registered");
         return;
     }
-    
-    if (req.getParams().empty()) 
-    {
+    if (req.getParams().empty()) {
         sendNumeric(client->getFd(), 461, client->getNick(), "TOPIC :Not enough parameters");
-        return;
-    }
-    
-    if (req.getParams().size() < 2 || line.find(" :") == std::string::npos)
-    {
-        sendNumeric(client->getFd(), 461, client->getNick(), "KICK :Invalid syntaxe format, must start with ':'");
         return;
     }
 
     std::string channelName = req.getParams()[0];
     Channel* channel = server->getChannel(channelName);
-    
-    if (!channel) 
-    {
+    if (!channel) {
         sendNumeric(client->getFd(), 403, client->getNick(), channelName + " :No such channel");
         return;
     }
-    
-    if (req.getParams().size() == 1) 
+
+    if (req.getParams().size() == 1 || line.find(" :") == std::string::npos) 
     {
         if (channel->getTopic().empty()) 
-        {
             sendNumeric(client->getFd(), 331, client->getNick(), channelName + " :No topic is set");
-        } 
         else 
-        {
-            sendNumeric(client->getFd(), 332, client->getNick(), 
-                        channelName + " :" + channel->getTopic());
-        }
+            sendNumeric(client->getFd(), 332, client->getNick(), channelName + " :" + channel->getTopic());
+        return;
     } 
-    else 
-    {
-        if (channel->getTopicRestricted() && !channel->isOperator(client)) 
-        {
-            sendNumeric(client->getFd(), 482, client->getNick(), 
-                        channelName + " :You're not channel operator");
-            return;
-        }
-        
-        std::string newTopic = req.getParams()[1];
-        channel->setTopic(newTopic);
-        
-        std::stringstream topicMsg;
-        topicMsg << ":" << client->getNick() << " TOPIC of " << channelName << " is:" << newTopic;
-        channel->broadcast(topicMsg.str(), client);
-        sendToClient(client->getFd(), topicMsg.str());
+    if (channel->getTopicRestricted() && !channel->isOperator(client)) {
+        sendNumeric(client->getFd(), 482, client->getNick(), channelName + " :You're not channel operator");
+        return;
     }
+
+    std::string newTopic = req.getParams()[1];
+    channel->setTopic(newTopic);
+
+    std::stringstream topicMsg;
+    topicMsg << ":" << client->getNick() << "!" << client->getUsername() << "@localhost TOPIC " << channelName << " :" << newTopic;
+    
+    channel->broadcast(topicMsg.str(), client);
+    sendToClient(client->getFd(), topicMsg.str());
 }
 
 void handleInvite(Server* server, Client* client, const Request& req) 
@@ -820,9 +751,7 @@ void handleMode(Server* server, Client* client, const Request& req)
                     }
                     else continue;
                 }
-                else continue; // Skip unknown modes
-                
-                // Broadcast individual mode change
+                else continue;
                 channel->broadcast(broadcastMsg.str(), client);
                 sendToClient(client->getFd(), broadcastMsg.str());
             }
@@ -927,18 +856,12 @@ void Server::run()
                         else
                             sendToClient(fd, ":server PONG :server");
                     }
-                    else if (cmd == "NOTICE")
-                        handleNotice(this, client, req);
-                    else if (cmd == "QUIT") 
-                    {
-                        removeClient(fd);
-                        break;
-                    }
                 }
             }
         }
     }
 }
+
 void Server::registerInternalClient(int fd, Client* client)
 {
     clients[fd] = client;

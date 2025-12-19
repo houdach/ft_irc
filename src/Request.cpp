@@ -36,7 +36,6 @@ Request Request::parse(const std::string& line)
         temp = temp.substr(pos + 1);
     }
     
-    // Parse command
     pos = temp.find(' ');
     if (pos == std::string::npos) 
     {
@@ -46,7 +45,6 @@ Request Request::parse(const std::string& line)
     req._command = temp.substr(0, pos);
     temp = temp.substr(pos + 1);
     
-    // Parse parameters
     while (!temp.empty()) 
     {
         while (!temp.empty() && temp[0] == ' ')

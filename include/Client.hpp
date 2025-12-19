@@ -20,7 +20,7 @@ public:
     Client(int fd);
     ~Client();
 
-    // Basic info
+
     int getFd() const;
     std::string getNick() const;
     void setNick(const std::string& nick);
@@ -35,7 +35,7 @@ public:
     bool isPasswordAuthenticated() const;
     void setPasswordAuthenticated(bool status);
 
-    // Communication
+
     void appendIncoming(const std::string& data);
     std::string popLine();  
     void queueMessage(const std::string& msg);
