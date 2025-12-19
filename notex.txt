@@ -1,15 +1,2 @@
 
-5.
-MODE (not working when mulit modes passed in one command.)
 
-boradcast each mode individually and in order
-
-test :
-MODE #room +okl zakaria 123 99
-:salah MODE #room +okl zakaria
-
-expected output
-MODE #room +okl zakaria 123 99
-:salah MODE +o zkaria is now a operator
-:salah MODE +k password is 123
-:salah MODE +l userlimit is 99

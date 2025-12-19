@@ -54,7 +54,7 @@ class Server
         Client* getClientByNick(const std::string& nick);
         Channel* getChannel(const std::string& name);
         std::string getPassword() const;
-        void handlePrivmsg(Client* client, const Request& req);
+        void handlePrivmsg(Client* client, const Request& req, const std::string& line);
          void registerInternalClient(int fd, Client* client);
 };
 

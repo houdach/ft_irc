@@ -332,7 +332,7 @@ void handleJoin(Server* server, Client* client, const Request& req)
         sendNumeric(client->getFd(), 366, client->getNick(), channelName + " :Topic is " + channel->getTopic());
 }
 
-void Server::handlePrivmsg(Client* client, const Request& req) 
+void Server::handlePrivmsg(Client* client, const Request& req, const std::string& line) 
 {
     if (!client->isRegistered()) 
     {
@@ -346,6 +346,12 @@ void Server::handlePrivmsg(Client* client, const Request& req)
         return;
     }
     
+    if (line.find(" :") == std::string::npos)
+    {
+        sendNumeric(client->getFd(), 461, client->getNick(), "KICK :Invalid syntaxe format, must start with ':'");
+        return;
+    }
+
     std::string target = req.getParams()[0];
     std::string message;
     if (req.getParams().size() >= 2)
@@ -579,7 +585,7 @@ void handleKick(Server* server, Client* client, const Request& req, const std::s
     channel->removeUser(targetClient);
 }
 
-void handleTopic(Server* server, Client* client, const Request& req, const std::string& line) 
+void handleTopic(Server* server, Client* client, const Request& req, const std::string &line) 
 {
     if (!client->isRegistered()) 
     {
@@ -595,7 +601,7 @@ void handleTopic(Server* server, Client* client, const Request& req, const std::
     
     if (req.getParams().size() < 2 || line.find(" :") == std::string::npos)
     {
-        sendNumeric(client->getFd(), 461, client->getNick(), "KICK :Invalid reason format, must start with ':'");
+        sendNumeric(client->getFd(), 461, client->getNick(), "KICK :Invalid syntaxe format, must start with ':'");
         return;
     }
 
@@ -728,95 +734,87 @@ void handleMode(Server* server, Client* client, const Request& req)
             }
             
             std::string modeStr = req.getParams()[1];
-            size_t paramIndex = 2;  // Start from req.getParams()[2]
+            size_t paramIndex = 2;
             bool adding = true;
             
             for (size_t i = 0; i < modeStr.length(); ++i) 
             {
                 char modeChar = modeStr[i];
-                if (modeChar == '+') 
-                {
-                    adding = true;
-                    continue;
-                } 
-                else if (modeChar == '-') 
-                {
-                    adding = false;
-                    continue;
-                }
+                if (modeChar == '+') { adding = true; continue; } 
+                else if (modeChar == '-') { adding = false; continue; }
                 
                 std::string param = "";
-                if (modeChar == 'k' || modeChar == 'l' || modeChar == 'o')
-                {
-                    if (paramIndex < req.getParams().size())
-                        param = req.getParams()[paramIndex++];
-                    else
-                    {
-                        // Not enough params, skip or error
-                        continue;
-                    }
-                }
-                
-                // Apply the mode
+                std::stringstream broadcastMsg;
+                broadcastMsg << ":" << client->getNick() << " MODE " << target << " " << (adding ? "+" : "-") << modeChar;
+
                 if (modeChar == 'i') 
                 {
                     channel->setInviteOnly(adding);
+                    broadcastMsg << (adding ? " :Invite-only mode enabled" : " :Invite-only mode disabled");
                 } 
                 else if (modeChar == 't') 
                 {
                     channel->setTopicRestricted(adding);
+                    broadcastMsg << (adding ? " :Topic restricted to operators" : " :Topic restrictions removed");
                 } 
                 else if (modeChar == 'k') 
                 {
-                    if (adding) 
+                    if (adding && paramIndex < req.getParams().size()) 
                     {
+                        param = req.getParams()[paramIndex++];
                         channel->setKey(param);
+                        broadcastMsg << " " << param << " :password is " << param;
                     } 
-                    else 
+                    else if (!adding)
                     {
                         channel->setKey("");
+                        broadcastMsg << " :password removed";
                     }
+                    else continue;
                 } 
                 else if (modeChar == 'l') 
                 {
-                    if (adding) 
+                    if (adding && paramIndex < req.getParams().size()) 
                     {
+                        param = req.getParams()[paramIndex++];
                         int limit = std::atoi(param.c_str());
                         channel->setUserLimit(limit);
+                        broadcastMsg << " " << param << " :userlimit is " << limit;
                     } 
-                    else 
+                    else if (!adding)
                     {
                         channel->setUserLimit(-1);
+                        broadcastMsg << " :userlimit removed";
                     }
+                    else continue;
                 } 
                 else if (modeChar == 'o') 
                 {
-                    // Find target client
-                    std::vector<Client*> users = channel->getUsers();
-                    for (size_t j = 0; j < users.size(); ++j) 
+                    if (paramIndex < req.getParams().size())
                     {
-                        if (users[j]->getNick() == param) 
+                        param = req.getParams()[paramIndex++];
+                        Client* targetUser = NULL;
+                        std::vector<Client*> users = channel->getUsers();
+                        for (size_t j = 0; j < users.size(); ++j) 
                         {
-                            if (adding) 
+                            if (users[j]->getNick() == param) 
                             {
-                                channel->addOperator(users[j]);
-                            } 
-                            else 
-                            {
-                                channel->removeOperator(users[j]);
+                                targetUser = users[j];
+                                adding ? channel->addOperator(targetUser) : channel->removeOperator(targetUser);
+                                break;
                             }
-                            break;
                         }
+                        if (targetUser)
+                            broadcastMsg << " " << param << (adding ? " :is now an operator" : " :is no longer an operator");
+                        else continue;
                     }
+                    else continue;
                 }
+                else continue; // Skip unknown modes
                 
-                // Broadcast this mode change
-                std::stringstream modeMsg;
-                modeMsg << ":" << client->getNick() << " MODE " << target << " " << (adding ? "+" : "-") << modeChar;
-                if (!param.empty())
-                    modeMsg << " " << param;
-                channel->broadcast(modeMsg.str(), NULL);
-                sendToClient(client->getFd(), modeMsg.str());
+                // Broadcast individual mode change
+                channel->broadcast(broadcastMsg.str(), client);
+                sendToClient(client->getFd(), broadcastMsg.str());
             }
         }
     }
@@ -901,7 +899,7 @@ void Server::run()
                     else if (cmd == "JOIN") 
                         handleJoin(this, client, req); 
                     else if (cmd == "PRIVMSG") 
-                        handlePrivmsg(client, req); 
+                        handlePrivmsg(client, req, line); 
                     else if (cmd == "PART") 
                         handlePart(this, client, req); 
                     else if (cmd == "KICK") 
