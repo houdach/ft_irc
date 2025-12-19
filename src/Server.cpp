@@ -204,7 +204,7 @@ void handleUser(Server* server, Client* client, const Request& req, const std::s
         sendNumeric(client->getFd(), 461, client->getNick(), "USER :Invalid realname format, must start with ':'");
         return;
     }
-    if (req.getParams().size() < 3) 
+    if (req.getParams().size() < 4) 
     {
         sendNumeric(client->getFd(), 461, client->getNick(), "USER :Not enough parameters, please enter: USER <nickname> 0 *:<fullname>");
         return;
@@ -501,11 +501,21 @@ void handlePart(Server* server, Client* client, const Request& req)
         sendNumeric(client->getFd(), 442, client->getNick(), channelName + " :You're not on that channel");
         return;
     }
+
     std::stringstream partMsg;
     partMsg << ":" << client->getNick() << " PART " << channelName << " :" << reason;
-    channel->broadcast(partMsg.str(), NULL); 
+    channel->broadcast(partMsg.str(), client); 
     sendToClient(client->getFd(), partMsg.str());
+
+               
     
+    if (channel->isOperator(client))
+    {
+        std::vector<Client*> users = channel->getUsers();
+        channel->addOperator(users[1]);
+        sendNumeric(users[1]->getFd(), 442, users[1]->getNick(), channelName + " :You're now the new operator");
+
+    }
     channel->removeUser(client);
     if (channel->getUserCount() == 0) 
     {

@@ -29,7 +29,7 @@ void Bot::start()
     _client = new Client(-1); 
     _client->setNick(_nickname);
     _client->setRegistered(true);
-    // _server->registerInternalClient(-1, _client);  // Don't add to poll loop
+   
 
     std::cout << "🤖 Bot started as internal client." << std::endl;
 }
