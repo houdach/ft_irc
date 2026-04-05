@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ft_irc — Live Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@800&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0908;
+    --bg-surface: #0f0e0c;
+    --bg-card: #111009;
+    --amber: #e8a228;
+    --amber-dim: rgba(232,162,40,0.35);
+    --amber-ghost: rgba(232,162,40,0.08);
+    --amber-border: rgba(232,162,40,0.12);
+    --text: #f0e6d3;
+    --text-dim: rgba(240,230,211,0.5);
+    --text-ghost: rgba(240,230,211,0.2);
+    --green: #28c840;
+    --red: #ff5f57;
+    --yellow: #febc2e;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  /* ── Page header ── */
+  .page-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.4s ease forwards 0.1s;
+  }
+
+  .eyebrow-line {
+    width: 24px;
+    height: 1px;
+    background: var(--amber);
+  }
+
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(52px, 10vw, 96px);
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -3px;
+    line-height: 0.9;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.4s ease forwards 0.2s;
+  }
+
+  .page-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.8;
+    max-width: 380px;
+    margin: 0 auto;
+    opacity: 0;
+    animation: fadeUp 0.4s ease forwards 0.3s;
+  }
+
+  /* ── Tags ── */
+  .tags {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    opacity: 0;
+    animation: fadeUp 0.4s ease forwards 0.4s;
+  }
+
+  .tag {
+    padding: 4px 12px;
+    border: 1px solid var(--amber-border);
+    color: var(--amber);
+    font-size: 10px;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Main layout ── */
+  .demo-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    width: 100%;
+    max-width: 900px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease forwards 0.5s;
+  }
+
+  @media (max-width: 680px) {
+    .demo-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── IRC Window ── */
+  .irc-window {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--amber-border);
+    background: var(--bg);
+  }
+
+  .titlebar {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--amber-border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-surface);
+  }
+
+  .traffic-lights {
+    display: flex;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .titlebar-label {
+    font-size: 10px;
+    color: var(--amber-dim);
+    margin-left: 8px;
+    flex: 1;
+  }
+
+  .status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--amber);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .status-label {
+    font-size: 9px;
+    color: var(--amber);
+  }
+
+  /* ── Chat body ── */
+  .chat-body {
+    display: flex;
+    height: 260px;
+  }
+
+  .sidebar {
+    width: 90px;
+    border-right: 1px solid rgba(232,162,40,0.06);
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-label {
+    font-size: 7px;
+    color: rgba(232,162,40,0.3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .user-op { font-size: 8px; color: var(--amber); }
+  .user-name { font-size: 8px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .channels-section {
+    margin-top: 12px;
+  }
+
+  .channel-item {
+    font-size: 8px;
+    padding: 3px 4px;
+    border-radius: 3px;
+    margin-bottom: 2px;
+    cursor: default;
+  }
+
+  .channel-item.active {
+    background: var(--amber-ghost);
+    color: var(--amber);
+  }
+
+  .channel-item.inactive {
+    color: rgba(232,162,40,0.3);
+  }
+
+  /* ── Messages ── */
+  .messages {
+    flex: 1;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+  }
+
+  .msg-line {
+    font-size: 9px;
+    line-height: 1.7;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .msg-line.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .msg-info { color: rgba(232,162,40,0.3); font-style: italic; }
+  .msg-nick-cmd { color: var(--amber); }
+  .msg-nick-chat { color: var(--amber); }
+  .msg-sep { color: rgba(232,162,40,0.3); }
+  .msg-body-dim { color: rgba(240,230,211,0.4); }
+  .msg-body { color: rgba(240,230,211,0.75); }
+
+  .cursor-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+  }
+
+  .cursor-nick { font-size: 9px; color: var(--amber-dim); }
+
+  .cursor-block {
+    width: 6px;
+    height: 11px;
+    background: var(--amber);
+    animation: blink 1s step-start infinite;
+  }
+
+  /* ── Input bar ── */
+  .input-bar {
+    padding: 8px 14px;
+    border-top: 1px solid rgba(232,162,40,0.06);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 9px;
+  }
+
+  .input-prefix { color: var(--amber-dim); }
+  .input-placeholder { color: var(--text-ghost); flex: 1; }
+  .input-meta { color: rgba(232,162,40,0.2); font-size: 8px; }
+
+  /* ── Right panel — server log ── */
+  .server-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .server-log {
+    border-radius: 12px;
+    border: 1px solid var(--amber-border);
+    background: var(--bg);
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .log-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--amber-border);
+    background: var(--bg-surface);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .log-title {
+    font-size: 10px;
+    color: var(--amber-dim);
+    flex: 1;
+  }
+
+  .log-body {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    height: 220px;
+    overflow: hidden;
+  }
+
+  .log-line {
+    font-size: 9px;
+    line-height: 1.7;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .log-line.visible { opacity: 1; transform: translateX(0); }
+
+  .log-time { color: rgba(232,162,40,0.25); margin-right: 6px; }
+  .log-tag-ok { color: var(--green); }
+  .log-tag-info { color: var(--amber); }
+  .log-tag-dim { color: var(--amber-dim); }
+  .log-text { color: var(--text-dim); }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-card {
+    border: 1px solid var(--amber-border);
+    border-radius: 8px;
+    padding: 12px;
+    background: var(--bg);
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--amber);
+    font-family: 'Syne', sans-serif;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 8px;
+    color: var(--text-ghost);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ── Replay button ── */
+  .replay-btn {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--amber-border);
+    border-radius: 8px;
+    background: var(--amber-ghost);
+    color: var(--amber);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    text-transform: uppercase;
+  }
+
+  .replay-btn:hover {
+    background: rgba(232,162,40,0.15);
+    border-color: rgba(232,162,40,0.3);
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 40px;
+    font-size: 10px;
+    color: rgba(232,162,40,0.2);
+    text-align: center;
+    letter-spacing: 0.1em;
+    opacity: 0;
+    animation: fadeUp 0.4s ease forwards 0.9s;
+  }
+
+  .footer a {
+    color: var(--amber-dim);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .footer a:hover { color: var(--amber); }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <div class="eyebrow">
+    <span class="eyebrow-line"></span>
+    Systems Project · 42 Network · C++98
+    <span class="eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">ft_irc</h1>
+  <p class="page-sub">
+    A fully functional IRC server built in C++98. Non-blocking I/O,
+    multiple concurrent clients, channels, and operator commands — from scratch, no libraries.
+  </p>
+  <div class="tags">
+    <span class="tag">C++98</span>
+    <span class="tag">TCP/IP</span>
+    <span class="tag">Sockets</span>
+    <span class="tag">Non-blocking I/O</span>
+    <span class="tag">poll()</span>
+    <span class="tag">DCC File Transfer</span>
+  </div>
+</header>
+
+<div class="demo-layout">
+
+  <!-- IRC Client window -->
+  <div class="irc-window">
+    <div class="titlebar">
+      <div class="traffic-lights">
+        <div class="dot" style="background:#ff5f57"></div>
+        <div class="dot" style="background:#febc2e"></div>
+        <div class="dot" style="background:#28c840"></div>
+      </div>
+      <span class="titlebar-label">ircserv — #general — 3 users</span>
+      <div class="status-dot"></div>
+      <span class="status-label">port 6667</span>
+    </div>
+
+    <div class="chat-body">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-label">Users</div>
+        <div class="user-row"><span class="user-op">@</span><span class="user-name">hchouai</span></div>
+        <div class="user-row"><span class="user-op" style="color:transparent">@</span><span class="user-name">zakaria</span></div>
+        <div class="user-row"><span class="user-op">@</span><span class="user-name">zchtaibi</span></div>
+
+        <div class="channels-section">
+          <div class="sidebar-label">Channels</div>
+          <div class="channel-item active">#general</div>
+          <div class="channel-item inactive">#dev</div>
+          <div class="channel-item inactive">#42</div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages" id="chat-messages">
+        <div class="cursor-row" id="cursor-row" style="display:none">
+          <span class="cursor-nick">hchouai »</span>
+          <span class="cursor-block"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-bar">
+      <span class="input-prefix">#general »</span>
+      <span class="input-placeholder">type a message...</span>
+      <span class="input-meta">C++98 · TCP/IP</span>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="server-panel">
+
+    <!-- Server log -->
+    <div class="server-log">
+      <div class="log-header">
+        <div class="traffic-lights">
+          <div class="dot" style="background:#ff5f57"></div>
+          <div class="dot" style="background:#febc2e"></div>
+          <div class="dot" style="background:#28c840"></div>
+        </div>
+        <span class="log-title">ircserv · server log</span>
+        <div class="status-dot"></div>
+      </div>
+      <div class="log-body" id="log-body"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-val" id="stat-clients">0</div>
+        <div class="stat-label">clients</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-channels">0</div>
+        <div class="stat-label">channels</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-msgs">0</div>
+        <div class="stat-label">messages</div>
+      </div>
+    </div>
+
+    <button class="replay-btn" onclick="replay()">↺ replay demo</button>
+  </div>
+
+</div>
+
+<footer class="footer">
+  <a href="https://github.com/hchouai/ft_irc" target="_blank">github.com/hchouai/ft_irc</a>
+  &nbsp;·&nbsp; hchouai · zchtaibi &nbsp;·&nbsp; 42 Network
+</footer>
+
+<script>
+const CHAT = [
+  { type: "info",  text: "*** Connecting to 127.0.0.1:6667..." },
+  { type: "info",  text: "*** Connected. Authenticating..." },
+  { type: "cmd",   nick: "hchouai", text: "JOIN #general" },
+  { type: "info",  text: "*** hchouai joined #general" },
+  { type: "chat",  nick: "zakaria",  text: "hey! server actually works lol" },
+  { type: "chat",  nick: "hchouai",  text: "3 weeks of poll() debugging..." },
+  { type: "cmd",   nick: "zchtaibi", text: "MODE #general +i" },
+  { type: "info",  text: "*** #general is now invite-only" },
+  { type: "cmd",   nick: "hchouai",  text: "INVITE zakaria #dev" },
+  { type: "info",  text: "*** zakaria invited to #dev" },
+  { type: "chat",  nick: "zakaria",  text: "DCC SEND project.tar.gz" },
+  { type: "info",  text: "*** file transfer initiated (DCC)" },
+  { type: "cmd",   nick: "hchouai",  text: "KICK #general zakaria :no lurking" },
+  { type: "info",  text: "*** zakaria was kicked from #general" },
+];
+
+const LOGS = [
+  { tag: "OK",   col: "log-tag-ok",   text: "server listening on 0.0.0.0:6667" },
+  { tag: "INFO", col: "log-tag-info", text: "poll() loop started — 1 fd" },
+  { tag: "OK",   col: "log-tag-ok",   text: "client fd=4 connected from 127.0.0.1" },
+  { tag: "OK",   col: "log-tag-ok",   text: "client fd=5 connected from 127.0.0.1" },
+  { tag: "INFO", col: "log-tag-info", text: "PASS · NICK hchouai · USER registered" },
+  { tag: "INFO", col: "log-tag-info", text: "JOIN #general → channel created" },
+  { tag: "INFO", col: "log-tag-info", text: "MODE #general +i applied" },
+  { tag: "INFO", col: "log-tag-info", text: "PRIVMSG broadcast → 2 targets" },
+  { tag: "OK",   col: "log-tag-ok",   text: "DCC negotiation complete — peer transfer" },
+  { tag: "INFO", col: "log-tag-info", text: "KICK hchouai → zakaria removed" },
+];
+
+let chatIdx = 0;
+let logIdx  = 0;
+let msgCount = 0;
+let timers   = [];
+
+function pad(n) { return String(n).padStart(2, "0"); }
+
+function getTime() {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function renderChatLine(m) {
+  const el = document.createElement("div");
+  el.className = "msg-line";
+
+  if (m.type === "info") {
+    el.innerHTML = `<span class="msg-info">${m.text}</span>`;
+  } else if (m.type === "cmd") {
+    el.innerHTML = `<span class="msg-nick-cmd">${m.nick}</span><span class="msg-sep"> » </span><span class="msg-body-dim">${m.text}</span>`;
+  } else {
+    el.innerHTML = `<span class="msg-nick-chat">&lt;${m.nick}&gt;</span><span class="msg-body"> ${m.text}</span>`;
+    msgCount++;
+    document.getElementById("stat-msgs").textContent = msgCount;
+  }
+
+  return el;
+}
+
+function renderLogLine(l) {
+  const el = document.createElement("div");
+  el.className = "log-line";
+  el.innerHTML = `<span class="log-time">${getTime()}</span><span class="${l.col}">[${l.tag}]</span> <span class="log-text">${l.text}</span>`;
+  return el;
+}
+
+function stepChat() {
+  if (chatIdx >= CHAT.length) return;
+  const msgs = document.getElementById("chat-messages");
+  const cursor = document.getElementById("cursor-row");
+
+  const el = renderChatLine(CHAT[chatIdx]);
+  msgs.insertBefore(el, cursor);
+  requestAnimationFrame(() => el.classList.add("visible"));
+
+  cursor.style.display = "flex";
+  chatIdx++;
+
+  // update stats
+  const clients = [1,1,2,2,2,2,3,3,3,3,3,3,2,2][chatIdx - 1] || 2;
+  const channels = chatIdx >= 3 ? (chatIdx >= 9 ? 2 : 1) : 0;
+  document.getElementById("stat-clients").textContent = clients;
+  document.getElementById("stat-channels").textContent = channels;
+}
+
+function stepLog() {
+  if (logIdx >= LOGS.length) return;
+  const body = document.getElementById("log-body");
+  const el = renderLogLine(LOGS[logIdx]);
+  body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("visible"));
+  logIdx++;
+}
+
+function startDemo() {
+  CHAT.forEach((_, i) => {
+    timers.push(setTimeout(stepChat, 600 + i * 900));
+  });
+  LOGS.forEach((_, i) => {
+    timers.push(setTimeout(stepLog, 400 + i * 950));
+  });
+}
+
+function replay() {
+  timers.forEach(clearTimeout);
+  timers = [];
+  chatIdx = 0; logIdx = 0; msgCount = 0;
+  document.getElementById("chat-messages").innerHTML = `<div class="cursor-row" id="cursor-row" style="display:none"><span class="cursor-nick">hchouai »</span><span class="cursor-block"></span></div>`;
+  document.getElementById("log-body").innerHTML = "";
+  document.getElementById("stat-clients").textContent = "0";
+  document.getElementById("stat-channels").textContent = "0";
+  document.getElementById("stat-msgs").textContent = "0";
+  startDemo();
+}
+
+startDemo();
+</script>
+</body>
+</html>
