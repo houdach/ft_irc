@@ -110,7 +110,7 @@ make re     # fclean + build
 - [HexChat documentation](https://hexchat.readthedocs.io/)
 
 ## Live Demo
-👉 [**Open interactive demo →**](https://hchouai.github.io/ft_irc/demo)
+👉 [**Open interactive demo →**](https://houdach.github.io/ft_irc/)
 
 ### AI Usage
 
